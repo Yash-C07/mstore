@@ -7,14 +7,15 @@ import About from './pages/about.jsx'
 import Product from './pages/product.jsx'
 import Cart from './pages/cart.jsx'
 import Login from './pages/login.jsx'
+import Signup from './pages/Signup.jsx'
 import PlaceOrder from './pages/placeOrder.jsx'
 import Orders from './pages/orders.jsx'
-import Navbar from './components/NavBar.jsx'
+import Navbar from './components/Navbar.jsx'
 
 
 const App = () => {
   return (
-    <div className='p-4 sm:px-[5vw] md:px-[10vw] lg:px-[7vw] xl:px-[9vw]'>
+    <div className='bg-gray-100 p-4 sm:px-[5vw] md:px-[10vw] lg:px-[7vw] xl:px-[9vw]'>
       <Navbar />
       <Routes>
         <Route path='/' element={<Home />} />
@@ -24,6 +25,7 @@ const App = () => {
         <Route path='/product/:productId' element={<Product />} />
         <Route path='/cart' element={<Cart />} />
         <Route path='/login' element={<Login />} />
+        <Route path='/signup' element={<Signup />} />
         <Route path='/place-Order' element={<PlaceOrder />} />
         <Route path='/order' element={<Orders />} />
       </Routes>
