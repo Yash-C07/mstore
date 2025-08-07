@@ -14,6 +14,16 @@ import { authenticateToken } from "./middleware/auth.js";
 
 dotenv.config();
 
+// Set environment variables if not already set
+if (!process.env.PORT) process.env.PORT = '9999';
+if (!process.env.MONGODB_URI) process.env.MONGODB_URI = 'mongodb+srv://KavinCharlie:jaya2005@cluster0.xaxng.mongodb.net/mstore';
+if (!process.env.JWT_SECRET) process.env.JWT_SECRET = 'your_jwt_secret_key_here_change_this_in_production';
+
+// Debug: Log environment variables
+console.log('Environment variables:');
+console.log('PORT:', process.env.PORT);
+console.log('MONGODB_URI:', process.env.MONGODB_URI ? 'Set' : 'Not set');
+
 // Connect to MongoDB
 connectDB();
 
@@ -47,7 +57,25 @@ const validateLogin = [
 
 
 app.get('/api/health', (req, res) => {
-  res.json({ message: 'Server is running', status: 'OK' });
+  res.json({ 
+    message: 'MStore Backend Server is running!', 
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    endpoints: {
+      'GET /api/health': 'Server health check',
+      'POST /api/auth/register': 'Register a new user',
+      'POST /api/auth/login': 'Login user',
+      'GET /api/auth/profile': 'Get user profile (requires auth)',
+      'PUT /api/auth/profile': 'Update user profile (requires auth)',
+      'PUT /api/auth/change-password': 'Change password (requires auth)',
+      'POST /api/auth/logout': 'Logout (requires auth)',
+      'GET /api/products': 'Get products information',
+      'GET /api/products/:id': 'Get specific product',
+      'POST /api/products': 'Create product (Admin only)',
+      'PUT /api/products/:id': 'Update product (Admin only)',
+      'DELETE /api/products/:id': 'Delete product (Admin only)'
+    }
+  });
 });
 
 
@@ -56,7 +84,10 @@ app.post('/api/auth/register', validateRegistration, async (req, res) => {
     
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      return res.status(400).json({ 
+        message: 'Validation failed',
+        errors: errors.array() 
+      });
     }
 
     const { name, email, password } = req.body;
@@ -64,7 +95,10 @@ app.post('/api/auth/register', validateRegistration, async (req, res) => {
     
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ message: 'User already exists with this email' });
+      return res.status(400).json({ 
+        message: 'Registration failed: User already exists with this email',
+        suggestion: 'Try logging in instead or use a different email address'
+      });
     }
 
     
@@ -84,17 +118,28 @@ app.post('/api/auth/register', validateRegistration, async (req, res) => {
     );
 
     res.status(201).json({
-      message: 'User registered successfully',
+      message: 'Welcome to MStore! User registered successfully',
       user: newUser.toJSON(),
-      token
+      token,
+      nextSteps: {
+        'Login': 'Use the token for authenticated requests',
+        'Profile': 'GET /api/auth/profile with Authorization header',
+        'Products': 'GET /api/products to browse products'
+      }
     });
 
   } catch (error) {
     console.error('Registration error:', error);
     if (error.code === 11000) {
-      return res.status(400).json({ message: 'User already exists with this email' });
+      return res.status(400).json({ 
+        message: 'Registration failed: User already exists with this email',
+        suggestion: 'Try logging in instead or use a different email address'
+      });
     }
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(500).json({ 
+      message: 'Internal server error',
+      suggestion: 'Please try again later'
+    });
   }
 });
 
@@ -129,9 +174,14 @@ app.post('/api/auth/login', validateLogin, async (req, res) => {
     );
 
     res.json({
-      message: 'Login successful',
+      message: 'Welcome back to MStore! Login successful',
       user: user.toJSON(),
-      token
+      token,
+      nextSteps: {
+        'Profile': 'GET /api/auth/profile with Authorization header',
+        'Products': 'GET /api/products to browse products',
+        'Logout': 'POST /api/auth/logout when done'
+      }
     });
 
   } catch (error) {

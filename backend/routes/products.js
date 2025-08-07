@@ -4,47 +4,27 @@ import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Get all products
+// Welcome message for products route
 router.get('/', async (req, res) => {
   try {
-    const { category, search, sort, page = 1, limit = 10 } = req.query;
-    
-    let query = { isActive: true };
-    
-    // Filter by category
-    if (category) {
-      query.category = category;
-    }
-    
-    // Search functionality
-    if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } }
-      ];
-    }
-    
-    // Sorting
-    let sortOption = {};
-    if (sort === 'price-asc') sortOption = { price: 1 };
-    else if (sort === 'price-desc') sortOption = { price: -1 };
-    else if (sort === 'rating') sortOption = { rating: -1 };
-    else sortOption = { createdAt: -1 };
-    
-    const skip = (page - 1) * limit;
-    
-    const products = await Product.find(query)
-      .sort(sortOption)
-      .limit(parseInt(limit))
-      .skip(skip);
-    
-    const total = await Product.countDocuments(query);
-    
     res.json({
-      products,
-      totalPages: Math.ceil(total / limit),
-      currentPage: parseInt(page),
-      total
+      message: 'Welcome to MStore Products API!',
+      description: 'This endpoint provides access to all products in our store',
+      endpoints: {
+        'GET /': 'Get all products with filtering and pagination',
+        'GET /:id': 'Get a specific product by ID',
+        'POST /': 'Create a new product (Admin only)',
+        'PUT /:id': 'Update a product (Admin only)',
+        'DELETE /:id': 'Delete a product (Admin only)'
+      },
+      query: {
+        'category': 'Filter by product category',
+        'search': 'Search in product name and description',
+        'sort': 'Sort by price-asc, price-desc, or rating',
+        'page': 'Page number for pagination',
+        'limit': 'Number of products per page'
+      },
+      example: 'GET /api/products?category=electronics&sort=price-asc&page=1&limit=10'
     });
   } catch (error) {
     console.error('Get products error:', error);
