@@ -4,9 +4,18 @@ import dotenv from "dotenv";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { body, validationResult } from "express-validator";
+import connectDB from "./config/database.js";
+import User from "./models/User.js";
+import Product from "./models/Product.js";
+import Order from "./models/Order.js";
+import productRoutes from "./routes/products.js";
+import { authenticateToken } from "./middleware/auth.js";
 
 
 dotenv.config();
+
+// Connect to MongoDB
+connectDB();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -17,7 +26,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 
-let users = [];
+// Remove in-memory users array as we're now using MongoDB
 
 
 const validateRegistration = [
@@ -32,22 +41,7 @@ const validateLogin = [
 ];
 
 
-const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
-  if (!token) {
-    return res.status(401).json({ message: 'Access token required' });
-  }
-
-  jwt.verify(token, process.env.JWT_SECRET || 'SuperSecretAwesomeKey', (err, user) => {
-    if (err) {
-      return res.status(403).json({ message: 'Invalid or expired token' });
-    }
-    req.user = user;
-    next();
-  });
-};
+// Remove duplicate authenticateToken function as it's now in middleware
 
 
 
@@ -68,43 +62,38 @@ app.post('/api/auth/register', validateRegistration, async (req, res) => {
     const { name, email, password } = req.body;
 
     
-    const existingUser = users.find(user => user.email === email);
+    const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ message: 'User already exists with this email' });
     }
 
     
-    const saltRounds = 10;
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
-
-    
-    const newUser = {
-      id: Date.now().toString(),
+    const newUser = new User({
       name,
       email,
-      password: hashedPassword,
-      createdAt: new Date()
-    };
+      password
+    });
 
-    users.push(newUser);
+    await newUser.save();
 
     
     const token = jwt.sign(
-      { userId: newUser.id, email: newUser.email },
+      { userId: newUser._id, email: newUser.email },
       process.env.JWT_SECRET || 'EvloPeriyaSecretKey',
       { expiresIn: '24h' }
     );
 
-    
-    const { password: _, ...userWithoutPassword } = newUser;
     res.status(201).json({
       message: 'User registered successfully',
-      user: userWithoutPassword,
+      user: newUser.toJSON(),
       token
     });
 
   } catch (error) {
     console.error('Registration error:', error);
+    if (error.code === 11000) {
+      return res.status(400).json({ message: 'User already exists with this email' });
+    }
     res.status(500).json({ message: 'Internal server error' });
   }
 });
@@ -121,29 +110,27 @@ app.post('/api/auth/login', validateLogin, async (req, res) => {
     const { email, password } = req.body;
 
     
-    const user = users.find(user => user.email === email);
+    const user = await User.findOne({ email });
     if (!user) {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
 
     
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    const isPasswordValid = await user.comparePassword(password);
     if (!isPasswordValid) {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
 
     
     const token = jwt.sign(
-      { userId: user.id, email: user.email },
+      { userId: user._id, email: user.email },
       process.env.JWT_SECRET || 'EvloPeriyaSecretKey',
       { expiresIn: '24h' }
     );
 
-    
-    const { password: _, ...userWithoutPassword } = user;
     res.json({
       message: 'Login successful',
-      user: userWithoutPassword,
+      user: user.toJSON(),
       token
     });
 
@@ -154,15 +141,14 @@ app.post('/api/auth/login', validateLogin, async (req, res) => {
 });
 
 
-app.get('/api/auth/profile', authenticateToken, (req, res) => {
+app.get('/api/auth/profile', authenticateToken, async (req, res) => {
   try {
-    const user = users.find(user => user.id === req.user.userId);
+    const user = await User.findById(req.user.userId);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    const { password: _, ...userWithoutPassword } = user;
-    res.json({ user: userWithoutPassword });
+    res.json({ user: user.toJSON() });
   } catch (error) {
     console.error('Profile error:', error);
     res.status(500).json({ message: 'Internal server error' });
@@ -174,40 +160,42 @@ app.post('/api/auth/logout', authenticateToken, (req, res) => {
   res.json({ message: 'Logged out successfully' });
 });
 
+// Product routes
+app.use('/api/products', productRoutes);
+
 
 app.put('/api/auth/profile', authenticateToken, async (req, res) => {
   try {
     const { name, email } = req.body;
-    const userIndex = users.findIndex(user => user.id === req.user.userId);
+    const user = await User.findById(req.user.userId);
 
-    if (userIndex === -1) {
+    if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
     
-    if (email && email !== users[userIndex].email) {
-      const emailExists = users.some(user => user.email === email && user.id !== req.user.userId);
+    if (email && email !== user.email) {
+      const emailExists = await User.findOne({ email, _id: { $ne: req.user.userId } });
       if (emailExists) {
         return res.status(400).json({ message: 'Email already in use' });
       }
     }
 
     
-    users[userIndex] = {
-      ...users[userIndex],
-      name: name || users[userIndex].name,
-      email: email || users[userIndex].email,
-      updatedAt: new Date()
-    };
+    user.name = name || user.name;
+    user.email = email || user.email;
+    await user.save();
 
-    const { password: _, ...userWithoutPassword } = users[userIndex];
     res.json({
       message: 'Profile updated successfully',
-      user: userWithoutPassword
+      user: user.toJSON()
     });
 
   } catch (error) {
     console.error('Profile update error:', error);
+    if (error.code === 11000) {
+      return res.status(400).json({ message: 'Email already in use' });
+    }
     res.status(500).json({ message: 'Internal server error' });
   }
 });
@@ -225,24 +213,20 @@ app.put('/api/auth/change-password', authenticateToken, async (req, res) => {
       return res.status(400).json({ message: 'New password must be at least 6 characters long' });
     }
 
-    const userIndex = users.findIndex(user => user.id === req.user.userId);
-    if (userIndex === -1) {
+    const user = await User.findById(req.user.userId);
+    if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
     
-    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, users[userIndex].password);
+    const isCurrentPasswordValid = await user.comparePassword(currentPassword);
     if (!isCurrentPasswordValid) {
       return res.status(401).json({ message: 'Current password is incorrect' });
     }
 
     
-    const saltRounds = 10;
-    const hashedNewPassword = await bcrypt.hash(newPassword, saltRounds);
-
-    
-    users[userIndex].password = hashedNewPassword;
-    users[userIndex].updatedAt = new Date();
+    user.password = newPassword;
+    await user.save();
 
     res.json({ message: 'Password changed successfully' });
 
