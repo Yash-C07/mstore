@@ -2,5 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-a.active {
-  display:block}
+a.active hr  {
+  display: block;
+}

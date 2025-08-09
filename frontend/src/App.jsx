@@ -6,11 +6,11 @@ import Contact from './pages/contact.jsx'
 import About from './pages/about.jsx'
 import Product from './pages/product.jsx'
 import Cart from './pages/cart.jsx'
-import Login from './pages/login.jsx'
+import Login from './pages/Login.jsx'
 import Signup from './pages/Signup.jsx'
 import PlaceOrder from './pages/placeOrder.jsx'
 import Orders from './pages/orders.jsx'
-import Navbar from './components/Navbar.jsx'
+import Navbar from './components/NavBar.jsx'
 
 
 const App = () => {
