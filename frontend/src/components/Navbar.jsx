@@ -27,12 +27,32 @@ return (
             </NavLink>
         </ul>
         <div className='flex items-center gap-4'>
-            <NavLink to='/Login'>
-            <button className='px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition'>Login</button>
-            </NavLink>
-            <NavLink to='/Signup'>
-            <button className='px-4 py-2 border border-white-600 text-white-600 rounded hover:bg-gray-600 transition'>Sign Up</button>
-            </NavLink>
+            {!localStorage.getItem('token') ? (
+              <>
+                <NavLink to='/login'>
+                  <button className='px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition'>Login</button>
+                </NavLink>
+                <NavLink to='/signup'>
+                  <button className='px-4 py-2 border border-white-600 text-white-600 rounded hover:bg-gray-600 transition'>Sign Up</button>
+                </NavLink>
+              </>
+            ) : (
+              <>
+                <span className='text-white text-sm'>
+                  Welcome, {JSON.parse(localStorage.getItem('user'))?.name || 'User'}
+                </span>
+                <button 
+                  onClick={() => {
+                    localStorage.removeItem('token')
+                    localStorage.removeItem('user')
+                    window.location.reload()
+                  }}
+                  className='px-4 py-2 border border-red-400 text-red-400 rounded hover:bg-red-400 hover:text-white transition'
+                >
+                  Logout
+                </button>
+              </>
+            )}
         </div>
         <div className='flex items-center gap-4'>
             <img src={assets.searchI} className = 'w-5 cursor-pointer' alt="" />
@@ -60,5 +80,4 @@ return (
 )
 }
 
-export default Navbar
-responsive 
+export default Navbar 
